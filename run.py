@@ -5,6 +5,7 @@ import matplotlib
 import numpy as np
 import os
 import torch
+import time
 
 from depth_anything_v2.dpt import DepthAnythingV2
 
@@ -32,6 +33,7 @@ if __name__ == '__main__':
         'vitg': {'encoder': 'vitg', 'features': 384, 'out_channels': [1536, 1536, 1536, 1536]}
     }
     
+    print(f'Using encoder: {args.encoder}')
     depth_anything = DepthAnythingV2(**model_configs[args.encoder])
     depth_anything.load_state_dict(torch.load(f'checkpoints/depth_anything_v2_{args.encoder}.pth', map_location='cpu'))
     depth_anything = depth_anything.to(DEVICE).eval()
@@ -53,8 +55,13 @@ if __name__ == '__main__':
         print(f'Progress {k+1}/{len(filenames)}: {filename}')
         
         raw_image = cv2.imread(filename)
+        start_time = time.time()  
         
         depth = depth_anything.infer_image(raw_image, args.input_size)
+        
+        end_time =  time.time()
+        print(f"cost: {(end_time - start_time)*1000} ms")
+
         
         depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255.0
         depth = depth.astype(np.uint8)
