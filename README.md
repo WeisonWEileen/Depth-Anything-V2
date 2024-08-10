@@ -1,27 +1,32 @@
-### 跑官方demo
+### 比较 DepAny2 的 inference 结果和 groudtruth
+默认使用 vits 模型
 ```
-python3 run.py --img-path depth_selection/val_selection_cropped/image/2011_09_26_drive_0002_sync_image_0000000008_image_03.png --pred-only --encoder vitb 
+python3 ./scripts/test_depth_synch.py --raw_img_path depth_selection/val_selection_cropped/image/2011_09_26_drive_0002_sync_image_0000000005_image_02.png
+```
 
-```
-### 测试预测的深度图和 groudtruth
-```
-python3 ./scripts/test_depth_synch.py --raw_img_path depth_selection/val_selection_cropped/image/2011_09_26_drive_0002_sync_image_0000000005_image_02.png --encoder vits
-```
+<div style="display: flex; justify-content: space-between; align-items: center;">
+  <div style="text-align: center; width: 45%;">
+    <img src="assets/weison/02.png" alt="Image 1" style="width: 100%;"/>
+    <p><strong>grayscale映射rgb模式</strong></p>
+  </div>
+  <div style="text-align: center; width: 45%;">
+    <img src="assets/weison/03.png" alt="Image 2" style="width: 100%;"/>
+    <p><strong>grayscale模式</strong></p>
+  </div>
+</div>
 
 ### 模型
-1.2G的最大参数量的 checkpoint 的model2060跑kitti depth dataset一张都跑不动
+1.2G的最大参数量的 checkpoint model在2060上跑kitti depth dataset 显存不足
 放在3080Ti上能够正常跑
 
 ### 在 kitti depth dataset 1216 x 352 的图片中随机选取一张测试运行时长
 <div style="text-align:center;">
- <img src="assets/test_runtime.png" width="400" height="250">
+ <img src="assets/weison/01.png" width="400" height="250">
 </div>
-
-### 测试模型深度对其
-```scripts/test_depth_synch.py```脚本
 
 
 ## 目录结构
+
 ```
 ├── assets
 │   ├── examples
@@ -64,4 +69,10 @@ python3 ./scripts/test_depth_synch.py --raw_img_path depth_selection/val_selecti
 │   └── util
 ├── scripts
 └── vis_depth
+```
+
+
+### 跑官方demo
+```
+python3 run.py --img-path depth_selection/val_selection_cropped/image/2011_09_26_drive_0002_sync_image_0000000008_image_03.png --pred-only 
 ```

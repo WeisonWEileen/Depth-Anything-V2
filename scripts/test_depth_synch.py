@@ -36,16 +36,15 @@ def get_depth_path(old_name):
 
     new_dirname = '/'.join(dirname_parts)
 
-    print(f"depth image : {new_dirname}")
-    # exit()
     return new_dirname
     
 
 
 def predict_depth(raw_image, encoder, input_size=518):
+    r"""Return a single channel Dep2Anything predition."""
 
     depth_anything = DepthAnythingV2(**model_configs[encoder])
-    depth_anything.load_state_dict(torch.load(f'checkpoints/depth_anything_v2_{args.encoder}.pth', map_location='cpu'))
+    depth_anything.load_state_dict(torch.load(f'checkpoints/depth_anything_v2_{args.encoder}.pth', map_location='cpu',weights_only=True))
     depth_anything = depth_anything.to(DEVICE).eval()
 
 
@@ -60,6 +59,8 @@ def predict_depth(raw_image, encoder, input_size=518):
     return depth
 
 def normalize_depth(depth, grayscale=False):
+    r'''normalize the output from Dep2Any and return a 3-channel image'''
+
     cmap = matplotlib.colormaps.get_cmap('Spectral_r')
 
     depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255.0
@@ -73,42 +74,55 @@ def normalize_depth(depth, grayscale=False):
     return depth
 
 def get_groundtruth(raw_img_path,grayscale=False):
-        # read by 3 channel, since vconcat 
+    r'''read the single channel depth image in kitti 
+    and return a 3-channel image
+    '''
 
-    depth_image_path = get_depth_path(args.raw_img_path)
-
-    if grayscale:
-        ground_truth = cv2.imread(depth_image_path)
-
-    else:
-        cmap = matplotlib.colormaps.get_cmap('Spectral_r')
-        ground_truth = cv2.imread(get_depth_path(raw_img_path),0)
-        ground_truth = (cmap(ground_truth)[:, :, :3] * 255)[:, :, ::-1].astype(np.uint8)
+    depth_image_path = get_depth_path(raw_img_path)
+    ground_truth = one2three(cv2.imread(depth_image_path,0),grayscale)
 
     return ground_truth
 
-def get_ratio(pred_depth,ground_truth):
+def one2three(singchanimg,grayscale=False):
+    r'''to turn a single channel depth image to 3 channel image based on whether to grayscale'''
 
-    gray_ground_truth = ground_truth[..., 0]
-    non_zero_indices = np.nonzero(gray_ground_truth)
+    print(f'singchanimg is {singchanimg}')
+    if grayscale:
+        # equal to directly return 3 times copy of single channel
+        threechanimg = np.repeat(singchanimg[..., np.newaxis], 3, axis=-1)
+
+    else:
+        cmap = matplotlib.colormaps.get_cmap('Spectral_r')
+        threechanimg = (cmap(singchanimg)[:, :, :3] * 255)[:, :, ::-1].astype(np.uint8)
     
-    if len(non_zero_indices[0]) == 0:
+    return threechanimg
+
+
+def get_ratio(pred_depth_raw,raw_img_path,sample_size):
+    depth_image_path = get_depth_path(raw_img_path)
+    ground_truth = cv2.imread(depth_image_path,0)
+    non_zero_indx = np.nonzero(ground_truth)
+    
+    if len(non_zero_indx[0]) == 0:
         # No non-zero values found
         return None
 
-    # Get the position of the first non-zero pixel
-    fir_nonzero_pos = (non_zero_indices[0][0], non_zero_indices[1][0])
+    num_non_zero_index = len(non_zero_indx[0])
 
-    print(ground_truth[fir_nonzero_pos[0]][fir_nonzero_pos[1]])
-    print(pred_depth[fir_nonzero_pos[0]][fir_nonzero_pos[1]])
+    ratio = 0
 
-    print(f"the ratio is ")
+    # randomly pick 5 non-zero index to calculate the ratio
+    for i in range(sample_size):
+        index = np.random.randint(num_non_zero_index)
+        x = non_zero_indx[0][index]
+        y = non_zero_indx[1][index]
 
-    exit()
+        ratio += ground_truth[x,y] / pred_depth_raw[x,y] 
+    
+    ratio /= 5
+    print(f"for sample size {sample_size}, ratio is {ratio}")
 
-
-
-    return None
+    return ratio
 
 
 
@@ -123,27 +137,37 @@ if __name__ == '__main__':
     parser.add_argument('--raw_img_path', type=str, required=True, help='Path of ground truth depth maps.')
     parser.add_argument('--encoder', type=str, default='vits', choices=['vits', 'vitb', 'vitl', 'vitg'])
     parser.add_argument('--grayscale',dest='grayscale', action='store_true', help='do not apply colorful palette')
+    parser.add_argument('--sample-size',type=int,default=5)
     args = parser.parse_args()
 
     DEVICE= 'cuda' if torch.cuda.is_available() else 'cpu'
 
     raw_image = cv2.imread(args.raw_img_path)
-
     pred_depth_raw = predict_depth(raw_image, args.encoder)
     pred_depth = normalize_depth(pred_depth_raw, args.grayscale)
-    
-
     ground_truth = get_groundtruth(args.raw_img_path, args.grayscale)
-    split_region = np.ones((50, raw_image.shape[1], 3), dtype=np.uint8) * 255
 
 
-    # ratio = get_ratio(pred_depth_raw,ground_truth)
+    ratio = get_ratio(pred_depth_raw,args.raw_img_path, args.sample_size)
+    pred_depth_scale = pred_depth_raw * ratio
+    pred_depth_scale = one2three(pred_depth_scale,args.grayscale)
 
+
+
+    v_split_region = np.ones((50, raw_image.shape[1], 3), dtype=np.uint8) * 255
+    # v_split_region = np.ones((50, raw_image.shape[1], 3), dtype=np.uint8) * 255
+    v_combined_image_1 = cv2.vconcat([raw_image, v_split_region, pred_depth])
+    v_combined_image_2 = cv2.vconcat([ground_truth,v_split_region,pred_depth_scale])
     
 
-    combined_image = cv2.vconcat([raw_image, split_region,pred_depth,split_region, ground_truth])
+    h_split_region = np.ones((v_combined_image_1.shape[0],50,3), dtype=np.uint8) * 255
+
+    combined_image = cv2.hconcat([v_combined_image_1,h_split_region,v_combined_image_2])
+
     
     while True:
+        cv2.namedWindow('combined')
+        cv2.resizeWindow('combined',700,1800)
         cv2.imshow('combined', combined_image)
 
         key = cv2.waitKey(1)
