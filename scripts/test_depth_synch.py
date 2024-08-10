@@ -6,7 +6,9 @@ import time
 import sys
 import numpy as np
 
-sys.path.append('/home/ares/Desktop/weison/Depth-Anything-V2')
+sys.path.append('./')
+
+
 
 from depth_anything_v2.dpt import DepthAnythingV2
 
@@ -113,7 +115,7 @@ if __name__ == '__main__':
     split_region = np.ones((50, raw_image.shape[1], 3), dtype=np.uint8) * 255
 
 
-    ratio = get_ratio(pred_depth_raw,ground_truth)
+    # ratio = get_ratio(pred_depth_raw,ground_truth)
 
     
 
