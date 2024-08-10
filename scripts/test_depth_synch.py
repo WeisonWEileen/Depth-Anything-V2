@@ -6,6 +6,7 @@ import time
 import sys
 import numpy as np
 
+# for import depth_anything module
 sys.path.append('./')
 
 
@@ -20,6 +21,9 @@ model_configs = {
 }
  
 def get_depth_path(old_name):  
+
+    # get the corresponse path of a rgb_image in the folder structure of kitti depth dataset
+
     dirname_parts = old_name.split('/')  
     dirname_parts[-2] = 'groundtruth_depth' 
 
@@ -67,7 +71,22 @@ def normalize_depth(depth, grayscale=False):
         depth = (cmap(depth)[:, :, :3] * 255)[:, :, ::-1].astype(np.uint8)
 
     return depth
-  
+
+def get_groundtruth(raw_img_path,grayscale=False):
+        # read by 3 channel, since vconcat 
+
+    depth_image_path = get_depth_path(args.raw_img_path)
+
+    if grayscale:
+        ground_truth = cv2.imread(depth_image_path)
+
+    else:
+        cmap = matplotlib.colormaps.get_cmap('Spectral_r')
+        ground_truth = cv2.imread(get_depth_path(raw_img_path),0)
+        ground_truth = (cmap(ground_truth)[:, :, :3] * 255)[:, :, ::-1].astype(np.uint8)
+
+    return ground_truth
+
 def get_ratio(pred_depth,ground_truth):
 
     gray_ground_truth = ground_truth[..., 0]
@@ -82,6 +101,8 @@ def get_ratio(pred_depth,ground_truth):
 
     print(ground_truth[fir_nonzero_pos[0]][fir_nonzero_pos[1]])
     print(pred_depth[fir_nonzero_pos[0]][fir_nonzero_pos[1]])
+
+    print(f"the ratio is ")
 
     exit()
 
@@ -100,7 +121,8 @@ if __name__ == '__main__':
 
 
     parser.add_argument('--raw_img_path', type=str, required=True, help='Path of ground truth depth maps.')
-    parser.add_argument('--encoder', type=str, default='vitl', choices=['vits', 'vitb', 'vitl', 'vitg'])
+    parser.add_argument('--encoder', type=str, default='vits', choices=['vits', 'vitb', 'vitl', 'vitg'])
+    parser.add_argument('--grayscale',dest='grayscale', action='store_true', help='do not apply colorful palette')
     args = parser.parse_args()
 
     DEVICE= 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -108,10 +130,10 @@ if __name__ == '__main__':
     raw_image = cv2.imread(args.raw_img_path)
 
     pred_depth_raw = predict_depth(raw_image, args.encoder)
-    pred_depth = normalize_depth(pred_depth_raw)
+    pred_depth = normalize_depth(pred_depth_raw, args.grayscale)
+    
 
-    ground_truth = cv2.imread(get_depth_path(args.raw_img_path))
-
+    ground_truth = get_groundtruth(args.raw_img_path, args.grayscale)
     split_region = np.ones((50, raw_image.shape[1], 3), dtype=np.uint8) * 255
 
 
