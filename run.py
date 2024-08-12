@@ -62,6 +62,7 @@ if __name__ == '__main__':
         end_time =  time.time()
         print(f"cost: {(end_time - start_time)*1000} ms")
 
+        print(depth[333][333])
         
         depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255.0
         depth = depth.astype(np.uint8)

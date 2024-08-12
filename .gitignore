@@ -3,3 +3,4 @@ depth_selection/
 vis_depth/
 checkpoints/
 __pycache__/
+*.odp#

@@ -15,6 +15,18 @@ python3 ./scripts/test_depth_synch.py --raw_img_path depth_selection/val_selecti
   </div>
 </div>
 
+### 基本的恒定的比值
+
+0.012
+$$
+\frac{1/\text{model ouput} }{\text{ground truth}}
+$$
+### 误差值计算
+kitti使用 SLLog ( Scale Invariant Logarithmic Eorror)
+$$
+\begin{aligned}D(y,y^{*})&=\quad\frac1{2n^2}\sum_{i,j}\left((\log y_i-\log y_j)-(\log y_i^*-\log y_j^*)\right)^2\\&=\quad\frac1n\sum_id_i^2-\frac1{n^2}\sum_{i,j}d_id_j\quad=\quad\frac1n\sum_id_i^2-\frac1{n^2}\left(\sum_id_i\right)^2\end{aligned}
+$$
+关于为何是 scale invariant 的， 参考论文[link](https://proceedings.neurips.cc/paper_files/paper/2014/file/7bccfde7714a1ebadf06c5f4cea752c1-Paper.pdf)
 ### 模型
 1.2G的最大参数量的 checkpoint model在2060上跑kitti depth dataset 显存不足
 放在3080Ti上能够正常跑
@@ -76,3 +88,7 @@ python3 ./scripts/test_depth_synch.py --raw_img_path depth_selection/val_selecti
 ```
 python3 run.py --img-path depth_selection/val_selection_cropped/image/2011_09_26_drive_0002_sync_image_0000000008_image_03.png --pred-only 
 ```
+
+### TODO
+- 优化多图片共同显示
+- 整理代码，提高复用性

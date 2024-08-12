@@ -162,6 +162,8 @@ public:
             int32_t u2 = u-1;
 
             // set pixel to min depth
+
+            // 把左边的连续的无效像素设置成两侧的有效像素的最小值
             if (u1>0 && u2<width_-1) {
               float d_ipol = std::min(getDepth(u1-1,v),getDepth(u2+1,v));
               for (int32_t u_curr=u1; u_curr<=u2; u_curr++)
@@ -174,6 +176,7 @@ public:
 
         // otherwise increment counter
         } else {
+          //记录连续count个无效像素
           count++;
         }
       }
