@@ -123,7 +123,7 @@ def get_singchannel_ratio(pre,gt,sample_size):
     ratio_mean = np.mean(ratios)
     ratio_variance = np.var(ratios)
     # print(f"ratios is {ratios}")
-    print(f"For sample size {sample_size}, mean is {ratio_mean}, variance is {ratio_variance}")
+    print(f"For sample size {sample_size}, ratio mean is {ratio_mean}, ratio variance is {ratio_variance}")
 
     return ratio_mean
 
@@ -139,7 +139,9 @@ def get_filter_ratio(pre,gt,sample_size):
     ratio_mean = np.mean(ratios)
     ratio_variance = np.var(ratios)
     # print(f"ratios is {ratios}")
-    print(f"For sample size {sample_size}, mean is {ratio_mean}, variance is {ratio_variance}")
+    # print(f"For sample size {sample_size}, mean is {ratio_mean}, variance is {ratio_variance}")
+
+    return ratio_mean,ratio_variance
  
 
 
@@ -211,7 +213,7 @@ if __name__ == '__main__':
 
 
     # parser.add_argument('--raw_img_path', type=str, required=True, help='Path of ground truth depth maps.')
-    parser.add_argument('--encoder', type=str, default='vits', choices=['vits', 'vitb', 'vitl', 'vitg'])
+    parser.add_argument('--encoder', type=str, default='vitb', choices=['vits', 'vitb', 'vitl', 'vitg'])
     parser.add_argument('--grayscale',dest='grayscale', action='store_true', help='do not apply colorful palette')
     parser.add_argument('--sample-size',type=int,default=100)
     args = parser.parse_args()
@@ -260,14 +262,20 @@ if __name__ == '__main__':
     all_images = [all_images[i] for i in range(0, len(all_images), 3)]
 
     
-    
+    # crop image as Depth anything V1 
     for img_path in all_images:
         raw_image = cv2.imread(img_path)
         pred_raw = predict_depth(raw_image, args.encoder)
         gt_raw = cv2.imread(get_depth_path(img_path),0)
         pred_inverse= inverse_depth(pred_raw)
+
+
+        mask_ = pred_inverse < 1.2
+        # pred_inverse = pred_inverse[mask]
+        # gt_raw = gt_raw[mask]
         
-        # min max depth get from depth anything v1
+        # 
+        # min max depth as depth anything v1
         min_depth_eval = 0.001
         max_depth_eval = 80.0
         pred_inverse[pred_inverse<min_depth_eval] = min_depth_eval
@@ -283,9 +291,40 @@ if __name__ == '__main__':
                           int(0.0359477 * gt_width):int(0.96405229 * gt_width)] = 1
 
 
-
+        pred_inverse_vmask = pred_inverse[valid_mask]
+        gt_raw_vmask = gt_raw[valid_mask]
         valid_mask = np.logical_and(valid_mask, eval_mask)
-        get_filter_ratio(pred_inverse[valid_mask],gt_raw[valid_mask],args.sample_size)
+        valid_mask = np.logical_and(valid_mask, mask_)
+        ratio_mean, ratio_var = get_filter_ratio(pred_inverse_vmask,gt_raw_vmask,args.sample_size)
+
+        
+        pred_ratio = pred_inverse_vmask / ratio_mean
+
+
+        # relative error
+        error = np.abs(pred_ratio - gt_raw_vmask) / gt_raw_vmask
+        error_mean = np.mean(error)
+        error_variance = np.var(error)
+
+        # mask = pred_ratio < 100
+        # filtered_error = error[mask]
+        # error_mean = np.mean(filtered_error)
+        # variance = np.var(filtered_error)
+
+        print(f'{ratio_mean} {ratio_var} {error_mean} {error_variance} ')
+
+        if (error_variance>400):
+            print("debug begin")
+            index_of_max = np.argmax(error)
+            print(f'最大{pred_ratio[index_of_max]}')
+            print(f'最大{gt_raw_vmask[index_of_max]}')
+            print(f'debug end')
+
+
+
+
+        
+
 
     
 

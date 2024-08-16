@@ -17,7 +17,7 @@ python3 ./scripts/test_depth_synch.py --raw_img_path depth_selection/val_selecti
 
 ### 基本的恒定的比值
 
-0.012
+0.20
 $$
 \frac{1/\text{model ouput} }{\text{ground truth}}
 $$
