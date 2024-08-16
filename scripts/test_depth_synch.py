@@ -5,6 +5,8 @@ import cv2
 import time
 import sys
 import numpy as np
+import os
+import random
 
 # for import depth_anything module
 sys.path.append('./')
@@ -61,15 +63,10 @@ def predict_depth(raw_image, encoder, input_size=518):
 def normalize_depth(depth):
     r'''normalize the single channel and return single channel '''
 
-    cmap = matplotlib.colormaps.get_cmap('Spectral_r')
 
     depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255.0
     depth = depth.astype(np.uint8)
         
-    # if grayscale:
-    # depth = np.repeat(depth[..., np.newaxis], 3, axis=-1)
-    # else:
-    # depth = (cmap(depth)[:, :, :3] * 255)[:, :, ::-1].astype(np.uint8)
 
     return depth
 
@@ -125,7 +122,7 @@ def get_singchannel_ratio(pre,gt,sample_size):
 
     ratio_mean = np.mean(ratios)
     ratio_variance = np.var(ratios)
-    print(f"ratios is {ratios}")
+    # print(f"ratios is {ratios}")
     print(f"For sample size {sample_size}, mean is {ratio_mean}, variance is {ratio_variance}")
 
     return ratio_mean
@@ -182,6 +179,13 @@ def get_imageshow(a,b,c,d):
 
     return combined_image
 
+def limit_output(pred,min_depth_eval,max_depth_eval):
+    pred[pred < min_depth_eval] = min_depth_eval
+    pred[pred > max_depth_eval] = max_depth_eval
+    pred[np.isinf(pred)] = max_depth_eval
+    pred[np.isnan(pred)] = min_depth_eval
+
+    return pred
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Test depth synchronization between ground truth and predicted depth maps by depth anything.')
@@ -190,7 +194,7 @@ if __name__ == '__main__':
     parser.add_argument('--input-size', type=int, default=518)
 
 
-    parser.add_argument('--raw_img_path', type=str, required=True, help='Path of ground truth depth maps.')
+    # parser.add_argument('--raw_img_path', type=str, required=True, help='Path of ground truth depth maps.')
     parser.add_argument('--encoder', type=str, default='vits', choices=['vits', 'vitb', 'vitl', 'vitg'])
     parser.add_argument('--grayscale',dest='grayscale', action='store_true', help='do not apply colorful palette')
     parser.add_argument('--sample-size',type=int,default=100)
@@ -198,11 +202,10 @@ if __name__ == '__main__':
 
     DEVICE= 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    raw_image = cv2.imread(args.raw_img_path)
-    pred_raw = predict_depth(raw_image, args.encoder)
-    ground_truth = get_groundtruth(args.raw_img_path, args.grayscale)
 
-    pred_depth = normalize_depth(pred_raw)
+    # ground_truth = get_groundtruth(args.raw_img_path, args.grayscale)
+
+    # pred_depth = normalize_depth(pred_raw)
 
     # groud_truth_norm = normalize_gt(args.raw_img_path)
     # # ratio = get_ratio(groud_truth_norm)
@@ -212,39 +215,60 @@ if __name__ == '__main__':
     
 
 
-
+    # single image test
     #  ----------------------------------------------- #
     #  没有归一化的 1/模型的输出 vs 没有归一化的 gt深度图
-    gt_raw = cv2.imread(get_depth_path(args.raw_img_path),0)
-    pred_inverse = inverse_depth(pred_raw)
+    # raw_image = cv2.imread(args.raw_img_path)
+    # pred_raw = predict_depth(raw_image, args.encoder)
+    # gt_raw = cv2.imread(get_depth_path(args.raw_img_path),0)
+    # pred_inverse = inverse_depth(pred_raw)
+    # get_singchannel_ratio(pred_inverse,gt_raw,args.sample_size)
     #  ----------------------------------------------- #
 
-    get_singchannel_ratio(pred_inverse,gt_raw,args.sample_size)
+    # multiple image test
+    img_dir = 'depth_selection/val_selection_cropped/image/'
+    # img_dir = 'depth_selection/val_selection_cropped/same_scene/'
+    all_images = [img_dir+f for f in os.listdir(img_dir) if f.endswith('.png') and f.startswith('2011_09_26_drive_0095')] 
+    print(f'total {len(all_images)} images in this scene')
+    # selected_images_paths = random.sample(all_images, 40)
+    # 2011_09_26_drive_0095_sync_image_0000000245_image_03.png
+    
+    for img_path in all_images:
+        raw_image = cv2.imread(img_path)
+        pred_raw = predict_depth(raw_image, args.encoder)
+        gt_raw = cv2.imread(get_depth_path(img_path),0)
+        pred_inverse = inverse_depth(pred_raw)
+        get_singchannel_ratio(pred_inverse,gt_raw,args.sample_size)
+
+    
+
 
     
     
     
-    #  ----------------------------------------------- #
-    # 归一化的  模型的输出的倒数 vs 归一化的  gt深度图
-    # pred_depth_inverse_norm = normalize_depth(pred_raw)
-    # ground_truth_norm = normalize_depth(singchannel_gt)
+    # #  ----------------------------------------------- #
+    # # 归一化的  1/模型的输出 vs 归一化的  gt深度图
+    # pred_depth_inverse_norm = normalize_depth(pred_inverse)
+    # print(len(np.nonzero(pred_depth_inverse_norm)))
+    # ground_truth_norm = normalize_depth(gt_raw)
     # get_singchannel_ratio(pred_depth_inverse_norm, ground_truth_norm ,args.sample_size)
-    #  ----------------------------------------------- #
+    # #  ----------------------------------------------- #
 
 
 
     np.set_printoptions(threshold=np.inf)
     # print(pred_inverse)
-    # pred_inverse = np.clip(pred_inverse,0,255)
-    while True:
-        cv2.imshow('b',gt_raw)
-        cv2.imshow('v',pred_inverse)
+    # # pred_inverse = np.clip(pred_inverse,0,255)
+    # while True:
+    #     cv2.imshow('h',pred_raw)
+    #     # cv2.imshow('b',gt_raw)
+    #     # cv2.imshow('v',pred_inverse)
 
-        key = cv2.waitKey(1)
+    #     key = cv2.waitKey(1)
 
-        if key == ord('q'):
-            print("Q key pressed, exiting...")
-            break
+    #     if key == ord('q'):
+    #         print("Q key pressed, exiting...")
+    #         break
     cv2.destroyAllWindows()
 
 

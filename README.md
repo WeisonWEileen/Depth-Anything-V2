@@ -21,12 +21,17 @@ python3 ./scripts/test_depth_synch.py --raw_img_path depth_selection/val_selecti
 $$
 \frac{1/\text{model ouput} }{\text{ground truth}}
 $$
-### 误差值计算
+### loss计算
+在计算 loss 之前，应该是有一系列的插值、限幅的操作，在 ```depth_anythingv1``` 里面的 ```compute_metrics``` 里面有体现
+
 kitti使用 SLLog ( Scale Invariant Logarithmic Eorror)
 $$
 \begin{aligned}D(y,y^{*})&=\quad\frac1{2n^2}\sum_{i,j}\left((\log y_i-\log y_j)-(\log y_i^*-\log y_j^*)\right)^2\\&=\quad\frac1n\sum_id_i^2-\frac1{n^2}\sum_{i,j}d_id_j\quad=\quad\frac1n\sum_id_i^2-\frac1{n^2}\left(\sum_id_i\right)^2\end{aligned}
 $$
 关于为何是 scale invariant 的， 参考论文[link](https://proceedings.neurips.cc/paper_files/paper/2014/file/7bccfde7714a1ebadf06c5f4cea752c1-Paper.pdf)
+ 还有一些常见的 metrics
+
+ ![alt text](assets/image.png)
 ### 模型
 1.2G的最大参数量的 checkpoint model在2060上跑kitti depth dataset 显存不足
 放在3080Ti上能够正常跑
