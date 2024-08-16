@@ -106,7 +106,7 @@ def normalize_gt(raw_img_path):
 
 # 
 def get_singchannel_ratio(pre,gt,sample_size):
-    r''' input pre and gt single channel depth numpy image and return average ratio '''
+    r''' input pre and gt single channel depth numpy image and return average ratio (original ratio calculation version)'''
     non_zero_indx = np.nonzero(gt)
     
     num_non_zero_index = len(non_zero_indx[0])
@@ -126,6 +126,22 @@ def get_singchannel_ratio(pre,gt,sample_size):
     print(f"For sample size {sample_size}, mean is {ratio_mean}, variance is {ratio_variance}")
 
     return ratio_mean
+
+def get_filter_ratio(pre,gt,sample_size):
+    r'''given the valid masked and minmax-filtered image and calculate the ratio'''
+    # print(f'the number of valid points{len(pre)}')
+    ratios = []
+    for i in range(sample_size):
+        index = np.random.randint(len(pre))
+        tmp_ratio = pre[index] / gt[index]
+        ratios.append(tmp_ratio)
+
+    ratio_mean = np.mean(ratios)
+    ratio_variance = np.var(ratios)
+    # print(f"ratios is {ratios}")
+    print(f"For sample size {sample_size}, mean is {ratio_mean}, variance is {ratio_variance}")
+ 
+
 
 
 def get_ratio(pred_raw,raw_img_path,sample_size):
@@ -228,17 +244,48 @@ if __name__ == '__main__':
     # multiple image test
     img_dir = 'depth_selection/val_selection_cropped/image/'
     # img_dir = 'depth_selection/val_selection_cropped/same_scene/'
-    all_images = [img_dir+f for f in os.listdir(img_dir) if f.endswith('.png') and f.startswith('2011_09_26_drive_0095')] 
+    # all_images = [img_dir+f for f in os.listdir(img_dir) if f.endswith('.png') and f.startswith('2011_09_26_drive_0095')] 
+
+    # This scenes change a lot: 2011_09_26_drive_0036
+    all_images = [img_dir+f for f in os.listdir(img_dir) if f.endswith('.png') and f.startswith('2011_09_26_drive_0036')] 
+
+    # print(len(all_images))
+    # exit()
+    all_images.sort()
+
     print(f'total {len(all_images)} images in this scene')
     # selected_images_paths = random.sample(all_images, 40)
     # 2011_09_26_drive_0095_sync_image_0000000245_image_03.png
+
+    all_images = [all_images[i] for i in range(0, len(all_images), 3)]
+
+    
     
     for img_path in all_images:
         raw_image = cv2.imread(img_path)
         pred_raw = predict_depth(raw_image, args.encoder)
         gt_raw = cv2.imread(get_depth_path(img_path),0)
-        pred_inverse = inverse_depth(pred_raw)
-        get_singchannel_ratio(pred_inverse,gt_raw,args.sample_size)
+        pred_inverse= inverse_depth(pred_raw)
+        
+        # min max depth get from depth anything v1
+        min_depth_eval = 0.001
+        max_depth_eval = 80.0
+        pred_inverse[pred_inverse<min_depth_eval] = min_depth_eval
+        pred_inverse[pred_inverse>max_depth_eval] = max_depth_eval
+        valid_mask = np.logical_and(gt_raw > min_depth_eval, gt_raw < max_depth_eval)
+
+        # eigen_crop
+        eigen_crop = True
+        if eigen_crop:
+            gt_height, gt_width = gt_raw.shape
+            eval_mask = np.zeros(valid_mask.shape)
+            eval_mask[int(0.3324324 * gt_height):int(0.91351351 * gt_height),
+                          int(0.0359477 * gt_width):int(0.96405229 * gt_width)] = 1
+
+
+
+        valid_mask = np.logical_and(valid_mask, eval_mask)
+        get_filter_ratio(pred_inverse[valid_mask],gt_raw[valid_mask],args.sample_size)
 
     
 
