@@ -274,7 +274,7 @@ if __name__ == '__main__':
         # pred_inverse = pred_inverse[mask]
         # gt_raw = gt_raw[mask]
         
-        mask_ = gt_raw < 10.0
+        mask_ = gt_raw < 5.0
 
 
         # min max depth as depth anything v1
