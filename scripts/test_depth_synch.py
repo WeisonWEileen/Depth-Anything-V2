@@ -270,14 +270,17 @@ if __name__ == '__main__':
         pred_inverse= inverse_depth(pred_raw)
 
 
-        mask_ = pred_inverse < 1.2
+        # mask_ = pred_inverse < 1.2
         # pred_inverse = pred_inverse[mask]
         # gt_raw = gt_raw[mask]
         
-        # 
+        mask_ = gt_raw < 10.0
+
+
         # min max depth as depth anything v1
         min_depth_eval = 0.001
-        max_depth_eval = 80.0
+        # max_depth_eval = 80.0
+        max_depth_eval = 10.0
         pred_inverse[pred_inverse<min_depth_eval] = min_depth_eval
         pred_inverse[pred_inverse>max_depth_eval] = max_depth_eval
         valid_mask = np.logical_and(gt_raw > min_depth_eval, gt_raw < max_depth_eval)
