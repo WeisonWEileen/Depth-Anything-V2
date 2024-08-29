@@ -4,3 +4,4 @@ vis_depth/
 checkpoints/
 __pycache__/
 *.odp#
+output/

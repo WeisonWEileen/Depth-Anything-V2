@@ -7,6 +7,8 @@ import sys
 import numpy as np
 import os
 import random
+from PIL import Image
+
 
 # for import depth_anything module
 sys.path.append('./')
@@ -205,6 +207,19 @@ def limit_output(pred,min_depth_eval,max_depth_eval):
 
     return pred
 
+def depth_read(filename):
+    # loads depth map D from png file
+    # and returns it as a numpy array,
+    # for details see readme.txt
+
+    depth_png = np.array(Image.open(filename), dtype=int)
+    # make sure we have a proper 16bit depth map here.. not 8bit!
+    assert(np.max(depth_png) > 255)
+
+    depth = depth_png.astype(np.float32) / 256.
+    depth[depth_png == 0] = -1.
+    return depth
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Test depth synchronization between ground truth and predicted depth maps by depth anything.')
 
@@ -261,12 +276,43 @@ if __name__ == '__main__':
 
     all_images = [all_images[i] for i in range(0, len(all_images), 3)]
 
-    
+    # first test  
+    # all_images = ['/home/bwshen/Desktop/pw/Depth-Anything-V2/depth_selection/val_selection_cropped/image/2011_09_26_drive_0002_sync_image_0000000005_image_02.png','/home/bwshen/Desktop/pw/Depth-Anything-V2/depth_selection/val_selection_cropped/image/2011_09_26_drive_0002_sync_image_0000000008_image_03.png','/home/bwshen/Desktop/pw/Depth-Anything-V2/depth_selection/val_selection_cropped/image/2011_09_26_drive_0002_sync_image_0000000014_image_03.png']
+
+    # all_images_ = [
+    #     '/home/bwshen/Desktop/pw/Depth-Anything-V2/depth_selection/val_selection_cropped/image/2011_09_26_drive_0023_sync_image_0000000077_image_03.png',
+    #     '/home/bwshen/Desktop/pw/Depth-Anything-V2/depth_selection/val_selection_cropped/image/2011_09_26_drive_0023_sync_image_0000000080_image_02.png',
+    #     '/home/bwshen/Desktop/pw/Depth-Anything-V2/depth_selection/val_selection_cropped/image/2011_09_26_drive_0023_sync_image_0000000083_image_03.png',
+    #     '/home/bwshen/Desktop/pw/Depth-Anything-V2/depth_selection/val_selection_cropped/image/2011_09_26_drive_0023_sync_image_0000000086_image_02.png'
+    # ]
+
+    all_txt = [
+        '/home/bwshen/Desktop/pw/Depth-Anything-V2/depth_selection/val_selection_cropped/intrinsics/2011_09_26_drive_0023_sync_image_0000000077_image_03.txt',
+        '/home/bwshen/Desktop/pw/Depth-Anything-V2/depth_selection/val_selection_cropped/intrinsics/2011_09_26_drive_0023_sync_image_0000000080_image_02.txt',
+        '/home/bwshen/Desktop/pw/Depth-Anything-V2/depth_selection/val_selection_cropped/intrinsics/2011_09_26_drive_0023_sync_image_0000000083_image_03.txt',
+        '/home/bwshen/Desktop/pw/Depth-Anything-V2/depth_selection/val_selection_cropped/intrinsics/2011_09_26_drive_0023_sync_image_0000000086_image_02.txt'
+    ]
+
+    all_dep = [
+        '/home/bwshen/Desktop/pw/Depth-Anything-V2/depth_selection/val_selection_cropped/groundtruth_depth/2011_09_26_drive_0023_sync_groundtruth_depth_0000000077_image_03.png',
+        '/home/bwshen/Desktop/pw/Depth-Anything-V2/depth_selection/val_selection_cropped/groundtruth_depth/2011_09_26_drive_0023_sync_groundtruth_depth_0000000080_image_02.png',
+        '/home/bwshen/Desktop/pw/Depth-Anything-V2/depth_selection/val_selection_cropped/groundtruth_depth/2011_09_26_drive_0023_sync_groundtruth_depth_0000000083_image_03.png',
+        '/home/bwshen/Desktop/pw/Depth-Anything-V2/depth_selection/val_selection_cropped/groundtruth_depth/2011_09_26_drive_0023_sync_groundtruth_depth_0000000086_image_02.png'
+    ]
+
+    # all_images = [
+    #     '/home/bwshen/Desktop/pw/Depth-Anything-V2/depth_selection/val_selection_cropped/image/2011_09_26_drive_0023_sync_image_0000000077_image_03.png',
+    #     '/home/bwshen/Desktop/pw/Depth-Anything-V2/depth_selection/val_selection_cropped/image/2011_09_26_drive_0023_sync_image_0000000080_image_02.png',
+    #     '/home/bwshen/Desktop/pw/Depth-Anything-V2/depth_selection/val_selection_cropped/image/2011_09_26_drive_0023_sync_image_0000000083_image_03.png',
+    #     '/home/bwshen/Desktop/pw/Depth-Anything-V2/depth_selection/val_selection_cropped/image/2011_09_26_drive_0023_sync_image_0000000086_image_02.png'
+    # ]
+    # cout = 0 2011_09_26_drive_0023_sync_image_0000000086_image_02.png
     # crop image as Depth anything V1 
     for img_path in all_images:
         raw_image = cv2.imread(img_path)
         pred_raw = predict_depth(raw_image, args.encoder)
-        gt_raw = cv2.imread(get_depth_path(img_path),0)
+        gt_raw = cv2.imread(get_depth_path(img_path),0)  # orginal version, haven divided by 256.0
+        gt_raw = depth_read(get_depth_path(img_path))  # new version, divided by 256.0
         pred_inverse= inverse_depth(pred_raw)
 
 
@@ -274,7 +320,8 @@ if __name__ == '__main__':
         # pred_inverse = pred_inverse[mask]
         # gt_raw = gt_raw[mask]
         
-        mask_ = gt_raw < 5.0
+        # only consider the depth < 10.0, which is significant for 3D reconstruction
+        mask_ = gt_raw < 10.0
 
 
         # min max depth as depth anything v1
@@ -283,7 +330,12 @@ if __name__ == '__main__':
         max_depth_eval = 10.0
         pred_inverse[pred_inverse<min_depth_eval] = min_depth_eval
         pred_inverse[pred_inverse>max_depth_eval] = max_depth_eval
+        # cv2.imwrite(f'./output/{cout}_pred.png', pred_inverse.astype('float32')) #lost information after dot
+        prefix = '.'.join((img_path.split("/")[-1]).split(".")[:-1])
+        Image.fromarray(pred_inverse).save(f'./output/02/{prefix}_pred.tif')
         valid_mask = np.logical_and(gt_raw > min_depth_eval, gt_raw < max_depth_eval)
+
+        # reload_img = np.array(Image.open(f'./output/{img_path.split("/")[-1]}_pred.tif'))
 
         # eigen_crop
         eigen_crop = True
@@ -300,9 +352,9 @@ if __name__ == '__main__':
         valid_mask = np.logical_and(valid_mask, mask_)
         ratio_mean, ratio_var = get_filter_ratio(pred_inverse_vmask,gt_raw_vmask,args.sample_size)
 
+        sav = pred_inverse_vmask.astype(np.uint8)
         
         pred_ratio = pred_inverse_vmask / ratio_mean
-
 
         # relative error
         error = np.abs(pred_ratio - gt_raw_vmask) / gt_raw_vmask
@@ -323,6 +375,7 @@ if __name__ == '__main__':
             print(f'最大{gt_raw_vmask[index_of_max]}')
             print(f'debug end')
 
+        # cout += 1
 
 
 
