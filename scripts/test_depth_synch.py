@@ -259,22 +259,23 @@ if __name__ == '__main__':
     #  ----------------------------------------------- #
 
     # multiple image test
-    img_dir = 'depth_selection/val_selection_cropped/image/'
+    # img_dir = 'depth_selection/val_selection_cropped/image/'
+    img_dir = '/home/bwshen/Desktop/pw/Depth-Anything-V2/data/test/'
     # img_dir = 'depth_selection/val_selection_cropped/same_scene/'
     # all_images = [img_dir+f for f in os.listdir(img_dir) if f.endswith('.png') and f.startswith('2011_09_26_drive_0095')] 
-
+    all_images = [img_dir+f for f in os.listdir(img_dir)]
     # This scenes change a lot: 2011_09_26_drive_0036
-    all_images = [img_dir+f for f in os.listdir(img_dir) if f.endswith('.png') and f.startswith('2011_09_26_drive_0036')] 
+    # all_images = [img_dir+f for f in os.listdir(img_dir) if f.endswith('.png') and f.startswith('2011_09_26_drive_0036')] 
 
     # print(len(all_images))
     # exit()
-    all_images.sort()
+    # all_images.sort()
 
     print(f'total {len(all_images)} images in this scene')
     # selected_images_paths = random.sample(all_images, 40)
     # 2011_09_26_drive_0095_sync_image_0000000245_image_03.png
 
-    all_images = [all_images[i] for i in range(0, len(all_images), 3)]
+    # all_images = [all_images[i] for i in range(0, len(all_images), 3)]
 
     # first test  
     # all_images = ['/home/bwshen/Desktop/pw/Depth-Anything-V2/depth_selection/val_selection_cropped/image/2011_09_26_drive_0002_sync_image_0000000005_image_02.png','/home/bwshen/Desktop/pw/Depth-Anything-V2/depth_selection/val_selection_cropped/image/2011_09_26_drive_0002_sync_image_0000000008_image_03.png','/home/bwshen/Desktop/pw/Depth-Anything-V2/depth_selection/val_selection_cropped/image/2011_09_26_drive_0002_sync_image_0000000014_image_03.png']
