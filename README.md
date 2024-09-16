@@ -94,6 +94,11 @@ $$
 python3 run.py --img-path depth_selection/val_selection_cropped/image/2011_09_26_drive_0002_sync_image_0000000008_image_03.png --pred-only 
 ```
 
+###
+指定 GPU 类型
+```
+export CUDA_VISIBLE_DEVICES=1
+```
 ### TODO
 - 优化多图片共同显示
 - 整理代码，提高复用性
