@@ -229,7 +229,6 @@ def get_ratio(pred_raw,raw_img_path,sample_size):
     ratio_variance = np.var(ratios)
 
     print(f"the ratios is {ratios}")
-    
     print(f"For sample size {sample_size}, mean is {ratio_mean}, variance is {ratio_variance}")
 
     return ratio_mean
@@ -296,9 +295,9 @@ if __name__ == '__main__':
     # all_images = [img_dir+f for f in os.listdir(img_dir) if f.endswith('.png') and f.startswith('2011_09_26_drive_0095')] 
     all_images = [img_dir+f for f in os.listdir(img_dir)]
 
-    print(all_images[0])
+    # print(all_images[0])
 
-    # all_images = [img for img in all_images if img.endswith('.png') and not img.endswith('_gt.png')]
+    all_images = [img for img in all_images if img.endswith('.png') and not img.endswith('_gt.png')]
 
     print(f'total {len(all_images)} images in this scene')
 
@@ -332,7 +331,7 @@ if __name__ == '__main__':
         print(f'processing {img_path}')
         disparity_raw = predict_depth(raw_image, args.encoder)     
         pred_raw = inverse_depth(disparity_raw)    
-        gt_raw = depth_read(get_depth_path(img_path)) 
+        gt_raw = depth_read(get_depth_path_v2(img_path)) 
         valid_mask = (gt_raw >= 0.001) & (gt_raw <= 20)
         pred = align_depth_least_square(gt_raw,pred_raw,valid_mask)
 
