@@ -61,6 +61,8 @@ def align_depth_least_square(
     # restore dimensions
     aligned_pred = aligned_pred.reshape(ori_shape)
 
+    print(f"scale is {scale}\n")
+    print(f"shift is {shift}\n")
     if return_scale_shift:
         return aligned_pred, scale, shift
     else:
@@ -115,149 +117,11 @@ def predict_depth(raw_image, encoder, input_size=518):
 
     return depth
 
-def normalize_depth(depth):
-    r'''normalize the single channel and return single channel '''
 
-
-    depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255.0
-    depth = depth.astype(np.uint8)
-        
-
-    return depth
-
-def get_groundtruth(raw_img_path,grayscale=False):
-    r'''read the single channel depth image in kitti 
-    and return a 3-channel image
-    '''
-
-    depth_image_path = get_depth_path(raw_img_path)
-    ground_truth = one2three(cv2.imread(depth_image_path,0),grayscale)
-
-    return ground_truth
-
-def one2three(singchanimg,grayscale=False):
-    r'''to turn a single channel depth image to 3 channel image based on whether to grayscale'''
-
-    # print(f'singchanimg is {singchanimg}')
-    if grayscale:
-        # equal to directly return 3 times copy of single channel
-        threechanimg = np.repeat(singchanimg[..., np.newaxis], 3, axis=-1).astype(np.uint8)
-
-    else:
-        cmap = matplotlib.colormaps.get_cmap('Spectral_r')
-        threechanimg = (cmap(singchanimg)[:, :, :3] * 255)[:, :, ::-1].astype(np.uint8)
-    
-    return threechanimg
-
-def normalize_gt(raw_img_path):
-    depth_image_path = get_depth_path(raw_img_path)
-    depth = cv2.imread(depth_image_path,0)
-
-    min = np.min(depth[depth>0])
-    max = np.max(depth[depth>0])
-    depth[depth>0] = (depth[depth>0] - min) / (max - min) * 255.0
-    depth = depth.astype(np.uint8)
-    return depth
-
-# 
-def get_singchannel_ratio(pre,gt,sample_size):
-    r''' input pre and gt single channel depth numpy image and return average ratio (original ratio calculation version)'''
-    non_zero_indx = np.nonzero(gt)
-    
-    num_non_zero_index = len(non_zero_indx[0])
-    ratios = []
-    for i in range(sample_size):
-        index = np.random.randint(num_non_zero_index)
-        x = non_zero_indx[0][index]
-        y = non_zero_indx[1][index]
-
-        tmp_ratio = pre[x,y] / gt[x,y]  
-        ratios.append(tmp_ratio)
-
-
-    ratio_mean = np.mean(ratios)
-    ratio_variance = np.var(ratios)
-    # print(f"ratios is {ratios}")
-    print(f"For sample size {sample_size}, ratio mean is {ratio_mean}, ratio variance is {ratio_variance}")
-
-    return ratio_mean
-
-def get_filter_ratio(pre,gt,sample_size):
-    r'''given the valid masked and minmax-filtered image and calculate the ratio'''
-    # print(f'the number of valid points{len(pre)}')
-    ratios = []
-    for i in range(sample_size):
-        index = np.random.randint(len(pre))
-        tmp_ratio = pre[index] / gt[index]
-        ratios.append(tmp_ratio)
-
-    ratio_mean = np.mean(ratios)
-    ratio_variance = np.var(ratios)
-    # print(f"ratios is {ratios}")
-    # print(f"For sample size {sample_size}, mean is {ratio_mean}, variance is {ratio_variance}")
-
-    return ratio_mean,ratio_variance
  
-
-
-
-def get_ratio(pred_raw,raw_img_path,sample_size):
-    depth_image_path = get_depth_path(raw_img_path)
-    ground_truth = cv2.imread(depth_image_path,0)
-    print(ground_truth)
-
-    non_zero_indx = np.nonzero(ground_truth)
-    
-    if len(non_zero_indx[0]) == 0:
-        return None
-
-    num_non_zero_index = len(non_zero_indx[0])
-
-
-    ratios = []
-
-    # randomly pick sample_size non-zero index to calculate the ratio
-    for i in range(sample_size):
-        index = np.random.randint(num_non_zero_index)
-        x = non_zero_indx[0][index]
-        y = non_zero_indx[1][index]
-
-        tmp_ratio = pred_raw[x,y] / ground_truth[x,y]  
-        ratios.append(tmp_ratio)
-
-    ratio_mean = np.mean(ratios)
-    ratio_variance = np.var(ratios)
-
-    print(f"the ratios is {ratios}")
-    print(f"For sample size {sample_size}, mean is {ratio_mean}, variance is {ratio_variance}")
-
-    return ratio_mean
-
 def inverse_depth(depth):
     depth = np.where(depth != 0, 1.0 / depth, 0)
     return depth
-
-def get_imageshow(a,b,c,d):
-    r'''concat 4 images into a single image for display'''
-
-    v_split_region = np.ones((50, a.shape[1], 3), dtype=np.uint8) * 255
-
-    v_combined_image_1 = cv2.vconcat([a, v_split_region, b])
-    v_combined_image_2 = cv2.vconcat([c,v_split_region,d])
-
-    h_split_region = np.ones((v_combined_image_1.shape[0],50,3), dtype=np.uint8) * 255
-
-    combined_image = cv2.hconcat([v_combined_image_1,h_split_region,v_combined_image_2])
-
-    return combined_image
-
-def limit_output(pred,min_depth_eval,max_depth_eval):
-    pred[pred < min_depth_eval] = min_depth_eval
-    pred[pred > max_depth_eval] = max_depth_eval
-    pred[np.isinf(pred)] = max_depth_eval
-    pred[np.isnan(pred)] = min_depth_eval
-
-    return pred
 
 def depth_read(filename):
     # loads depth map D from png file
@@ -271,6 +135,35 @@ def depth_read(filename):
     depth = depth_png.astype(np.float32) / 256.
     depth[depth_png == 0] = -1.
     return depth
+
+def eval_depth(pred, target):
+    assert pred.shape == target.shape
+
+    thresh = torch.max((target / pred), (pred / target))
+
+    d1 = torch.sum(thresh < 1.25).float() / len(thresh)
+    d2 = torch.sum(thresh < 1.25 ** 2).float() / len(thresh)
+    d3 = torch.sum(thresh < 1.25 ** 3).float() / len(thresh)
+
+    diff = pred - target
+    diff_log = torch.log(pred) - torch.log(target)
+
+    abs_rel = torch.mean(torch.abs(diff) / target)
+    sq_rel = torch.mean(torch.pow(diff, 2) / target)
+
+    rmse = torch.sqrt(torch.mean(torch.pow(diff, 2)))
+    rmse_log = torch.sqrt(torch.mean(torch.pow(diff_log , 2)))
+
+    log10 = torch.mean(torch.abs(torch.log10(pred) - torch.log10(target)))
+    silog = torch.sqrt(torch.pow(diff_log, 2).mean() - 0.5 * torch.pow(diff_log.mean(), 2))
+
+    return {'d1': d1.item(), 'd2': d2.item(), 'd3': d3.item(), 'abs_rel': abs_rel.item(), 'sq_rel': sq_rel.item(), 
+            'rmse': rmse.item(), 'rmse_log': rmse_log.item(), 'log10':log10.item(), 'silog':silog.item()}
+
+def save_tif(img,prefix):
+    Image.fromarray(img).save(f'./output/02/{prefix}_pred.tif')
+    
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Test depth synchronization between ground truth and predicted depth maps by depth anything.')
@@ -301,38 +194,25 @@ if __name__ == '__main__':
 
     print(f'total {len(all_images)} images in this scene')
 
-    def eval_depth(pred, target):
-        assert pred.shape == target.shape
 
-        thresh = torch.max((target / pred), (pred / target))
-
-        d1 = torch.sum(thresh < 1.25).float() / len(thresh)
-        d2 = torch.sum(thresh < 1.25 ** 2).float() / len(thresh)
-        d3 = torch.sum(thresh < 1.25 ** 3).float() / len(thresh)
-
-        diff = pred - target
-        diff_log = torch.log(pred) - torch.log(target)
-
-        abs_rel = torch.mean(torch.abs(diff) / target)
-        sq_rel = torch.mean(torch.pow(diff, 2) / target)
-
-        rmse = torch.sqrt(torch.mean(torch.pow(diff, 2)))
-        rmse_log = torch.sqrt(torch.mean(torch.pow(diff_log , 2)))
-
-        log10 = torch.mean(torch.abs(torch.log10(pred) - torch.log10(target)))
-        silog = torch.sqrt(torch.pow(diff_log, 2).mean() - 0.5 * torch.pow(diff_log.mean(), 2))
-
-        return {'d1': d1.item(), 'd2': d2.item(), 'd3': d3.item(), 'abs_rel': abs_rel.item(), 'sq_rel': sq_rel.item(), 
-                'rmse': rmse.item(), 'rmse_log': rmse_log.item(), 'log10':log10.item(), 'silog':silog.item()}
 
     for img_path in all_images:
         raw_image = cv2.imread(img_path)
         print("====================================")
         print(f'processing {img_path}')
-        disparity_raw = predict_depth(raw_image, args.encoder)     
-        pred_raw = inverse_depth(disparity_raw)    
+        disparity_raw = predict_depth(raw_image, args.encoder)   
+        # prefix = '.'.join((img_path.split("/")[-1]).split(".")[:-1])
+        # save_tif(disparity_raw,prefix)
+       
+        print(disparity_raw[100][100])
+        pred_raw = inverse_depth(disparity_raw)   
+        print(pred_raw[100][100])
         gt_raw = depth_read(get_depth_path_v2(img_path)) 
+
         valid_mask = (gt_raw >= 0.001) & (gt_raw <= 20)
+        # gt_raw 的均值大概是 10~11 左右，pred_raw 的均值在0.0045左右, 10.5/0.0045 = 2333.3333333333335,sacle 大约都是这么多
+        # print(np.mean(pred_raw[valid_mask]))
+        # continue
         pred = align_depth_least_square(gt_raw,pred_raw,valid_mask)
 
         pred_raw_ts = torch.from_numpy(pred)
@@ -340,35 +220,3 @@ if __name__ == '__main__':
         eval_results = eval_depth(pred_raw_ts[valid_mask], gt_raw_ts[valid_mask])
         print(eval_results)
         print("====================================")
-
-    
-
-
-    
-    
-
-
-
-
-
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
-
-
-
-
-
-
